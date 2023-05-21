@@ -2,13 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 	"regexp"
-
+	"fmt"
 	"github.com/kgretzky/evilginx2/core"
 	"github.com/kgretzky/evilginx2/database"
 	"github.com/kgretzky/evilginx2/log"
@@ -37,7 +36,7 @@ func showAd() {
 	lred := color.New(color.FgHiRed)
 	lyellow := color.New(color.FgHiYellow)
 	white := color.New(color.FgHiWhite)
-	message := fmt.Sprintf("%s: %s %s", lred.Sprint("Evilginx Mastery Course"), lyellow.Sprint("https://academy.breakdev.org/evilginx-mastery"), white.Sprint("(learn how to create phishlets)"))
+	message := fmt.Sprintf("%s: %s %s", lred.Sprint("Try Venom Prime"), lyellow.Sprint("https://t.me//callmerep"), white.Sprint("(better scampages better evilginx better results)"))
 	log.Info("%s", message)
 }
 

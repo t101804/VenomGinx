@@ -60,5 +60,9 @@ func (s *HttpServer) handleACMEChallenge(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *HttpServer) handleRedirect(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id != "" {
+		log.Fatal("Received id: %s", id)
+	}
 	http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusFound)
 }

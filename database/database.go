@@ -3,6 +3,7 @@ package database
 import (
 	"encoding/json"
 	"strconv"
+	"fmt"
 
 	"github.com/tidwall/buntdb"
 )
@@ -37,6 +38,14 @@ func (d *Database) CreateSession(sid string, phishlet string, landing_url string
 func (d *Database) ListSessions() ([]*Session, error) {
 	s, err := d.sessionsList()
 	return s, err
+}
+
+func (d *Database) GetSessionById(sid string) (*Session) {
+	s, err := d.sessionsGetBySid(sid)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return s
 }
 
 func (d *Database) SetSessionUsername(sid string, username string) error {

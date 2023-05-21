@@ -58,6 +58,9 @@ type CertificatesConfig struct {
 type GeneralConfig struct {
 	Domain      string `mapstructure:"domain" json:"domain" yaml:"domain"`
 	Ipv4        string `mapstructure:"ipv4" json:"ipv4" yaml:"ipv4"`
+	AppKey 		string `mapstructure:"appkey" json:"appkey" yaml:"appkey"`
+	SecretKey 	string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey"`
+	Venom		string `mapstructure:"venom" json:"venom" yaml:"venom"`
 	RedirectUrl string `mapstructure:"redirect_url" json:"redirect_url" yaml:"redirect_url"`
 	HttpsPort   int    `mapstructure:"https_port" json:"https_port" yaml:"https_port"`
 	DnsPort     int    `mapstructure:"dns_port" json:"dns_port" yaml:"dns_port"`
@@ -210,6 +213,25 @@ func (c *Config) SetServerIP(ip_addr string) {
 	c.cfg.WriteConfig()
 }
 
+func (c *Config) SetServerAppKey(appkey string) {
+	c.general.AppKey = appkey
+	c.cfg.Set(CFG_GENERAL, c.general)
+	log.Info("server AppKey set to: %s", appkey)
+	c.cfg.WriteConfig()
+}
+func (c *Config) SetServerSecretKey(secretkey string) {
+	c.general.SecretKey = secretkey
+	c.cfg.Set(CFG_GENERAL, c.general)
+	log.Info("server SecretKey set to: %s", secretkey)
+	c.cfg.WriteConfig()
+}
+
+func (c *Config) SetServerVenom(venom string) {
+	c.general.Venom = venom
+	c.cfg.Set(CFG_GENERAL, c.general)
+	log.Info("server venom set to: %s", venom)
+	c.cfg.WriteConfig()
+}
 func (c *Config) SetHttpsPort(port int) {
 	c.general.HttpsPort = port
 	c.cfg.Set(CFG_GENERAL, c.general)
@@ -657,6 +679,16 @@ func (c *Config) GetServerIP() string {
 	return c.general.Ipv4
 }
 
+func (c *Config) GetServerAppKey() string {
+	return c.general.AppKey
+}
+func (c *Config) GetServerSecretKey() string {
+	return c.general.SecretKey
+}
+
+func (c *Config) GetServerVenom() string {
+	return c.general.Venom
+}
 func (c *Config) GetHttpsPort() int {
 	return c.general.HttpsPort
 }

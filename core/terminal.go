@@ -195,6 +195,15 @@ func (t *Terminal) handleConfig(args []string) error {
 		case "ipv4":
 			t.cfg.SetServerIP(args[1])
 			return nil
+		case "appkey":
+			t.cfg.SetServerAppKey(args[1])
+			return nil
+		case "secretkey":
+			t.cfg.SetServerSecretKey(args[1])
+			return nil
+		case "venom":
+			t.cfg.SetServerVenom(args[1])
+			return nil
 		case "redirect_url":
 			if len(args[1]) > 0 {
 				_, err := url.ParseRequestURI(args[1])
@@ -1146,6 +1155,15 @@ func (t *Terminal) checkStatus() {
 	}
 	if t.cfg.GetServerIP() == "" {
 		log.Warning("server ip not set! type: config ipv4 <ip_address>")
+	}
+	if t.cfg.GetServerAppKey() == "" {
+		log.Warning("Server appkey not set! type: config appkey <appkey_fromvenom>")
+	}
+	if t.cfg.GetServerSecretKey() == "" {
+		log.Warning("Server secretkey not set! type: config secretkey <secretkey_fromvenom>")
+	}
+	if t.cfg.GetServerVenom() == "" {
+		log.Warning("Server Venom not set! type: config venom <venom_server>")
 	}
 }
 

