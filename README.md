@@ -13,4 +13,4 @@ config appkey <appkeyfromthedeveloperpanel>
 config secretkey <secretkeyfromthedeveloperpanel>
 ```
   
-#### Made By Rep Connection between evilginx and venom :) 
+#### Made By Rep and jarsenpai Connection between evilginx and venom :) 
